@@ -39,6 +39,7 @@ async function handleTikTok(mediaUrl, res) {
   }
 
   const d = data.data;
+  const fullUrl = (p) => p.startsWith('http') ? p : 'https://www.tikwm.com' + p;
   res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders() });
   res.end(JSON.stringify({
     success: true,
@@ -47,9 +48,9 @@ async function handleTikTok(mediaUrl, res) {
     cover: d.cover,
     author: d.author?.nickname || '',
     downloads: [
-      { label: 'No Watermark (MP4)', url: `https://www.tikwm.com${d.play}` },
-      { label: 'With Watermark (MP4)', url: `https://www.tikwm.com${d.wmplay}` },
-      { label: 'Audio (MP3)', url: `https://www.tikwm.com${d.music}` },
+      { label: 'No Watermark (MP4)', url: fullUrl(d.play) },
+      { label: 'With Watermark (MP4)', url: fullUrl(d.wmplay) },
+      { label: 'Audio (MP3)', url: fullUrl(d.music) },
     ],
   }));
 }
