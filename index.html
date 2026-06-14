@@ -56,7 +56,7 @@ async function fetchMedia() {
     if (data.cover) html += '<img src="' + data.cover + '">';
     if (data.title) html += '<p style="margin-bottom:1rem;">' + data.title + '</p>';
     data.downloads.forEach(d => {
-      html += '<a class="dl-link" href="' + d.url + '" target="_blank">' + d.label + '</a>';
+      html += '<a class="dl-link" href="/api/dl?url=' + encodeURIComponent(d.url) + '" target="_blank">' + d.label + '</a>';
     });
     html += '</div>';
     output.innerHTML = html;

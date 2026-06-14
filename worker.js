@@ -23,6 +23,12 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/dl") {
+      const dlUrl = url.searchParams.get("url");
+      if (!dlUrl) return jsonError("No URL provided");
+      return await proxyDownload(dlUrl);
+    }
+
     if (url.pathname === "/" || url.pathname === "/index.html") {
       return new Response(HTML, {
         headers: { "Content-Type": "text/html;charset=UTF-8" },
@@ -89,6 +95,26 @@ async function handleInstagram(mediaUrl) {
       url: link,
     })),
   });
+}
+
+async function proxyDownload(dlUrl) {
+  try {
+    const resp = await fetch(dlUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!resp.ok) return jsonError("Download failed");
+    const contentType = resp.headers.get("Content-Type") || "application/octet-stream";
+    const ext = contentType.includes("mp4") ? ".mp4" : contentType.includes("mp3") ? ".mp3" : ".bin";
+    const body = await resp.arrayBuffer();
+    return new Response(body, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="download${ext}"`,
+        "Content-Length": body.byteLength,
+        ...corsHeaders(),
+      },
+    });
+  } catch {
+    return jsonError("Download failed");
+  }
 }
 
 function corsHeaders() {

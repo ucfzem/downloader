@@ -6,14 +6,11 @@ async function handleRequest(request) {
   if (request.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders() });
   }
-
   const url = new URL(request.url);
-
   if (url.pathname === "/api/download" && request.method === "POST") {
     try {
       const { url: mediaUrl } = await request.json();
       if (!mediaUrl) return jsonError("No URL provided");
-
       if (/tiktok\.com/.test(mediaUrl)) {
         return await handleTikTok(mediaUrl);
       } else if (/instagram\.com/.test(mediaUrl)) {
@@ -25,13 +22,16 @@ async function handleRequest(request) {
       return jsonError("Server error: " + e.message);
     }
   }
-
+  if (url.pathname === "/api/dl") {
+    const dlUrl = url.searchParams.get("url");
+    if (!dlUrl) return jsonError("No URL provided");
+    return await proxyDownload(dlUrl);
+  }
   if (url.pathname === "/" || url.pathname === "/index.html") {
     return new Response(HTML, {
       headers: { "Content-Type": "text/html;charset=UTF-8" },
     });
   }
-
   return new Response("Not found", { status: 404 });
 }
 
@@ -91,6 +91,26 @@ async function handleInstagram(mediaUrl) {
       url: link,
     })),
   });
+}
+
+async function proxyDownload(dlUrl) {
+  try {
+    const resp = await fetch(dlUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!resp.ok) return jsonError("Download failed");
+    const contentType = resp.headers.get("Content-Type") || "application/octet-stream";
+    const ext = contentType.includes("mp4") ? ".mp4" : contentType.includes("mp3") ? ".mp3" : ".bin";
+    const body = await resp.arrayBuffer();
+    return new Response(body, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="download${ext}"`,
+        "Content-Length": body.byteLength,
+        ...corsHeaders(),
+      },
+    });
+  } catch {
+    return jsonError("Download failed");
+  }
 }
 
 function corsHeaders() {
@@ -172,7 +192,7 @@ async function fetchMedia() {
     if (data.cover) html += '<img src="' + data.cover + '">';
     if (data.title) html += '<p style="margin-bottom:1rem;">' + data.title + '</p>';
     data.downloads.forEach(d => {
-      html += '<a class="dl-link" href="' + d.url + '" target="_blank">' + d.label + '</a>';
+      html += '<a class="dl-link" href="/api/dl?url=' + encodeURIComponent(d.url) + '" target="_blank">' + d.label + '</a>';
     });
     html += '</div>';
     output.innerHTML = html;
