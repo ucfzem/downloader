@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import instagramGetUrl from 'instagram-url-direct';
 
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
@@ -12,12 +13,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { url: mediaUrl } = req.body;
+    const { url: mediaUrl, platform } = req.body;
     if (!mediaUrl) throw new Error('No URL provided');
 
-    if (/tiktok\.com/.test(mediaUrl)) {
+    if (platform === 'tiktok' || /tiktok\.com/.test(mediaUrl)) {
       return await handleTikTok(mediaUrl, res);
-    } else if (/instagram\.com/.test(mediaUrl)) {
+    } else if (platform === 'instagram' || /instagram\.com/.test(mediaUrl)) {
       return await handleInstagram(mediaUrl, res);
     } else {
       throw new Error('Unsupported platform. Use TikTok or Instagram links.');
@@ -56,39 +57,25 @@ async function handleTikTok(mediaUrl, res) {
 }
 
 async function handleInstagram(mediaUrl, res) {
-  const apiUrl = 'https://api.instasave.website/api/ajaxSearch';
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'Mozilla/5.0',
-    },
-    body: `q=${encodeURIComponent(mediaUrl)}&t=media&lang=en`,
-  });
-
-  const json = await response.json();
-  if (!json.data) {
+  try {
+    const result = await instagramGetUrl(mediaUrl);
+    if (!result || !result.url_list || result.url_list.length === 0) {
+      throw new Error('No media found');
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders() });
+    res.end(JSON.stringify({
+      success: true,
+      platform: 'Instagram',
+      title: 'Instagram Media',
+      downloads: result.url_list.map((url, i) => ({
+        label: url.includes('.mp4') ? `Video ${i + 1}` : `Photo ${i + 1}`,
+        url,
+      })),
+    }));
+  } catch {
     res.writeHead(400, { 'Content-Type': 'application/json', ...corsHeaders() });
-    return res.end(JSON.stringify({ success: false, error: 'Could not fetch Instagram media. Check the link.' }));
+    res.end(JSON.stringify({ success: false, error: 'Could not fetch Instagram media. Check the link.' }));
   }
-
-  const html = json.data;
-  const links = [...html.matchAll(/href="([^"]+)"[^>]*>.*?(Download|Video|Photo)/gi)]
-    .map(m => m[1])
-    .filter(href => href.startsWith('http'));
-
-  if (links.length === 0) {
-    res.writeHead(400, { 'Content-Type': 'application/json', ...corsHeaders() });
-    return res.end(JSON.stringify({ success: false, error: 'No downloadable media found.' }));
-  }
-
-  res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders() });
-  res.end(JSON.stringify({
-    success: true,
-    platform: 'Instagram',
-    title: 'Instagram Media',
-    downloads: links.map((link, i) => ({ label: `Media ${i + 1}`, url: link })),
-  }));
 }
 
 function corsHeaders() {

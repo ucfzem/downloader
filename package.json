@@ -5,6 +5,8 @@
     "dev": "vercel dev"
   },
   "dependencies": {
+    "@mrnima/instagram-downloader": "^1.0.0",
+    "instagram-url-direct": "^2.0.7",
     "node-fetch": "^2.7.0"
   }
 }

@@ -10,30 +10,63 @@
   h1 { font-size:1.6rem; margin-bottom:0.5rem; background:linear-gradient(90deg,#ff0050,#00f2ea); -webkit-background-clip:text; background-clip:text; color:transparent; }
   p.sub { color:#999; margin-bottom:2rem; text-align:center; font-size:0.9rem; }
   .box { width:100%; max-width:480px; background:#1a1a2e; border-radius:16px; padding:1.5rem; box-shadow:0 8px 30px rgba(0,0,0,0.4); }
+  .platform-tabs { display:flex; gap:0; margin-bottom:1.5rem; border-radius:10px; overflow:hidden; border:1px solid #333; }
+  .platform-tab { flex:1; padding:0.7rem; text-align:center; cursor:pointer; font-weight:600; font-size:0.9rem; background:#0f0f1a; color:#666; transition:.2s; border:none; font-family:inherit }
+  .platform-tab.active { background:linear-gradient(90deg,#ff0050,#00f2ea); color:#000 }
+  .platform-tab.active.tt { background:linear-gradient(90deg,#ff0050,#ff0050); color:#fff }
+  .platform-tab.active.ig { background:linear-gradient(90deg,#833ab4,#fd1d1d,#fcb045); color:#fff }
   input { width:100%; padding:0.9rem; border-radius:10px; border:1px solid #333; background:#0f0f1a; color:#fff; font-size:1rem; margin-bottom:1rem; }
-  button { width:100%; padding:0.9rem; border:none; border-radius:10px; background:linear-gradient(90deg,#ff0050,#00f2ea); color:#000; font-weight:600; font-size:1rem; cursor:pointer; }
-  button:disabled { opacity:0.6; }
+  button { width:100%; padding:0.9rem; border:none; border-radius:10px; cursor:pointer; font-weight:600; font-size:1rem; font-family:inherit }
+  button:disabled { opacity:0.6 }
+  .btn-tt { background:linear-gradient(90deg,#ff0050,#00f2ea); color:#000 }
+  .btn-ig { background:linear-gradient(90deg,#833ab4,#fd1d1d,#fcb045); color:#fff }
   .result { margin-top:1.5rem; }
   .result img { width:100%; border-radius:10px; margin-bottom:1rem; }
   .dl-link { display:block; background:#252540; padding:0.8rem; border-radius:10px; margin-bottom:0.6rem; text-decoration:none; color:#00f2ea; text-align:center; font-weight:500; }
+  .dl-link.ig-link { color:#fd1d1d }
   .error { color:#ff5f5f; margin-top:1rem; text-align:center; }
   .loading { text-align:center; margin-top:1rem; color:#999; }
+  .section { display:none }
+  .section.active { display:block }
 </style>
 </head>
 <body>
 <h1>UCF ZEM Downloader</h1>
-<p class="sub">Paste a TikTok or Instagram link below</p>
+<p class="sub">Choose a platform and paste the link</p>
 <div class="box">
-  <input type="text" id="urlInput" placeholder="Paste video link here...">
-  <button id="dlBtn" onclick="fetchMedia()">Get Download Links</button>
-  <div id="output"></div>
+  <div class="platform-tabs">
+    <button class="platform-tab tt active" data-tab="tiktok">🎵 TikTok</button>
+    <button class="platform-tab ig" data-tab="instagram">📸 Instagram</button>
+  </div>
+
+  <div id="section-tiktok" class="section active">
+    <input type="text" id="urlTt" placeholder="Paste TikTok link here...">
+    <button id="btnTt" class="btn-tt" onclick="fetchMedia('tiktok')">Get TikTok Download Links</button>
+    <div id="outputTt" class="output"></div>
+  </div>
+
+  <div id="section-instagram" class="section">
+    <input type="text" id="urlIg" placeholder="Paste Instagram link here...">
+    <button id="btnIg" class="btn-ig" onclick="fetchMedia('instagram')">Get Instagram Download Links</button>
+    <div id="outputIg" class="output"></div>
+  </div>
 </div>
 
 <script>
-async function fetchMedia() {
-  const url = document.getElementById('urlInput').value.trim();
-  const output = document.getElementById('output');
-  const btn = document.getElementById('dlBtn');
+document.querySelectorAll('.platform-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('section-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+async function fetchMedia(platform) {
+  const prefix = platform === 'tiktok' ? 'Tt' : 'Ig';
+  const url = document.getElementById('url' + prefix).value.trim();
+  const output = document.getElementById('output' + prefix);
+  const btn = document.getElementById('btn' + prefix);
   if (!url) return;
 
   btn.disabled = true;
@@ -43,7 +76,7 @@ async function fetchMedia() {
     const res = await fetch('/api/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
+      body: JSON.stringify({ url, platform })
     });
     const data = await res.json();
 
@@ -55,8 +88,9 @@ async function fetchMedia() {
     let html = '<div class="result">';
     if (data.cover) html += '<img src="' + data.cover + '">';
     if (data.title) html += '<p style="margin-bottom:1rem;">' + data.title + '</p>';
+    const isIg = data.platform === 'Instagram';
     data.downloads.forEach(d => {
-      html += '<a class="dl-link" href="/api/dl?url=' + encodeURIComponent(d.url) + '" target="_blank">' + d.label + '</a>';
+      html += '<a class="dl-link' + (isIg ? ' ig-link' : '') + '" href="/api/dl?url=' + encodeURIComponent(d.url) + '" target="_blank">' + d.label + '</a>';
     });
     html += '</div>';
     output.innerHTML = html;
